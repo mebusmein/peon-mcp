@@ -1,0 +1,67 @@
+{
+  "port": 3000,
+  "host": "localhost",
+  "processManager": {
+    "maxProcesses": 10,
+    "checkIntervalMs": 5000
+  },
+  "plugins": {
+    "claudeCode": {
+      "enabled": true,
+      "description": "Plugin for interacting with Claude AI",
+      "defaultModel": "claude-3-sonnet-20240229",
+      "timeoutMs": 60000
+    },
+    "git": {
+      "enabled": true,
+      "description": "Plugin for git operations",
+      "allowedCommands": [
+        "status",
+        "commit",
+        "push",
+        "pull",
+        "branch",
+        "checkout",
+        "log",
+        "diff"
+      ],
+      "branchTemplates": {
+        "feature": "feature/{name}",
+        "bugfix": "bugfix/{name}",
+        "hotfix": "hotfix/{name}"
+      },
+      "defaultBranchTemplate": "feature/{name}"
+    },
+    "npm": {
+      "enabled": true,
+      "description": "Plugin for npm operations",
+      "mode": "whitelist",
+      "allowedCommands": [
+        "install",
+        "run",
+        "test",
+        "list",
+        "outdated",
+        "update"
+      ],
+      "blockedCommands": ["publish", "config", "access", "adduser", "login"],
+      "commandConfig": {
+        "install": {
+          "description": "Install packages",
+          "allowedArgs": [
+            "--save",
+            "--save-dev",
+            "-D",
+            "--no-save",
+            "--global",
+            "-g"
+          ]
+        },
+        "run": {
+          "description": "Run npm scripts",
+          "allowedArgs": ["--", "--silent"]
+        }
+      }
+    }
+  }
+}
