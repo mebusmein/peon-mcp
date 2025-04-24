@@ -31,10 +31,62 @@ const availablePlugins: PluginDefinition[] = [
 ];
 
 /**
+ * Shows help message
+ */
+function showHelp() {
+  console.log(`
+Peon MCP - Modular MCP server
+
+Usage:
+  node dist/index.js [options]
+
+Options:
+  --stdio       Run server with stdio transport (default: sse)
+  --help, -h    Show this help message and exit
+`);
+  process.exit(0);
+}
+
+/**
+ * Parse command line arguments
+ */
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const options = {
+    transportType: "sse" as "sse" | "stdio",
+    showHelp: false,
+  };
+
+  for (const arg of args) {
+    if (arg === "--stdio") {
+      options.transportType = "stdio";
+    } else if (arg === "--help" || arg === "-h") {
+      options.showHelp = true;
+    }
+  }
+
+  return options;
+}
+
+/**
  * Main entry point for the MCP server
  */
 async function main() {
   try {
+    // Parse command line arguments
+    const options = parseArgs();
+
+    // Show help if requested
+    if (options.showHelp) {
+      showHelp();
+      return;
+    }
+
+    // Log startup information
+    console.log(
+      `Starting Peon MCP server with ${options.transportType} transport`
+    );
+
     // Load configuration
     const configPath =
       process.env.CONFIG_PATH || path.join(process.cwd(), "config.json");
@@ -61,18 +113,26 @@ async function main() {
     // Load and register plugins
     await pluginManager.loadPlugins(availablePlugins);
 
-    // Start the server
-    await mcp.start({
-      transportType: "sse",
-      sse: {
-        endpoint: "/mcp",
-        port: config.port,
-      },
-    });
-
-    console.log(
-      `MCP server running at http://${config.host}:${config.port}/mcp`
-    );
+    // Configure transport based on the specified type
+    if (options.transportType === "stdio") {
+      // Start the server with stdio transport
+      await mcp.start({
+        transportType: "stdio",
+      });
+      console.log("MCP server running in stdio mode");
+    } else {
+      // Start the server with SSE transport
+      await mcp.start({
+        transportType: "sse",
+        sse: {
+          endpoint: "/mcp",
+          port: config.port,
+        },
+      });
+      console.log(
+        `MCP server running at http://${config.host}:${config.port}/mcp`
+      );
+    }
 
     // Handle shutdown
     process.on("SIGINT", async () => {

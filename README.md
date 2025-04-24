@@ -7,6 +7,7 @@ Peon-MCP is a modular MCP (Model Context Protocol) server that can be used to ex
 - Modular plugin architecture
 - Process management for long-running operations
 - Configuration via JSON files and environment variables
+- Multiple transport options (SSE and stdio)
 - Built-in plugins for:
   - Claude AI - Start and manage Claude AI sessions
   - Git - Execute git operations with template support
@@ -49,11 +50,27 @@ npm run dev
 npm run build
 npm start
 
+# Run with SSE transport (default)
+npm start
+
+# Run with stdio transport
+npm start -- --stdio
+
 # Or use the run script
 ./run.sh        # Build and run in production mode
 ./run.sh --dev  # Run in development mode
 ./run.sh --no-build  # Run without building
+./run.sh --stdio # Run with stdio transport
 ```
+
+## Transport Options
+
+Peon-MCP supports two transport types:
+
+- **SSE (Server-Sent Events)** - Default transport that creates an HTTP server with an SSE endpoint.
+- **stdio** - Standard I/O transport for use in environments where a server cannot be established.
+
+Select the transport type by using the `--stdio` flag when starting the server.
 
 ## Available Tools
 

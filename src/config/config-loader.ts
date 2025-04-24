@@ -62,30 +62,24 @@ export class ConfigLoader {
     base: ServerConfig,
     override: Record<string, any>
   ): ServerConfig {
+    // Deep merge the process manager config
+    const processManagerConfig = {
+      ...base.processManager,
+      ...(override.processManager || {}),
+    };
+
+    // For plugins, we want to preserve the entire plugin configuration
+    // since validation is now handled by the plugins themselves
+    const plugins = {
+      ...(override.plugins || {}),
+    };
+
     // Merge the configs, validating against the schema
     return ServerConfigSchema.parse({
       ...base,
       ...override,
-      processManager: {
-        ...base.processManager,
-        ...(override.processManager || {}),
-      },
-      plugins: {
-        ...base.plugins,
-        ...(override.plugins || {}),
-        claudeCode: {
-          ...base.plugins.claudeCode,
-          ...(override.plugins?.claudeCode || {}),
-        },
-        git: {
-          ...base.plugins.git,
-          ...(override.plugins?.git || {}),
-        },
-        npm: {
-          ...base.plugins.npm,
-          ...(override.plugins?.npm || {}),
-        },
-      },
+      processManager: processManagerConfig,
+      plugins,
     });
   }
 
@@ -112,16 +106,6 @@ export class ConfigLoader {
         10
       );
     }
-
-    // Claude Code plugin configuration
-    if (process.env.CLAUDE_API_KEY) {
-      updatedConfig.plugins.claudeCode.apiKey = process.env.CLAUDE_API_KEY;
-    }
-    if (process.env.CLAUDE_MODEL) {
-      updatedConfig.plugins.claudeCode.defaultModel = process.env.CLAUDE_MODEL;
-    }
-
-    // More environment variable mappings can be added here
 
     return updatedConfig;
   }

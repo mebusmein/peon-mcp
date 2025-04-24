@@ -4,16 +4,20 @@
 
 # Check if we should build
 BUILD=true
-if [[ "$1" == "--no-build" ]]; then
+if [[ "$*" == *"--no-build"* ]]; then
   BUILD=false
-  shift
 fi
 
 # Check for dev mode
 DEV=false
-if [[ "$1" == "--dev" ]]; then
+if [[ "$*" == *"--dev"* ]]; then
   DEV=true
-  shift
+fi
+
+# Check for stdio transport
+STDIO=""
+if [[ "$*" == *"--stdio"* ]]; then
+  STDIO="-- --stdio"
 fi
 
 # Build the project if needed
@@ -25,8 +29,18 @@ fi
 # Run the server
 if [[ "$DEV" == "true" ]]; then
   echo "Starting in development mode..."
-  npm run dev
+  if [[ -n "$STDIO" ]]; then
+    echo "Using stdio transport..."
+    npm run dev $STDIO
+  else
+    npm run dev
+  fi
 else
   echo "Starting in production mode..."
-  npm start
+  if [[ -n "$STDIO" ]]; then
+    echo "Using stdio transport..."
+    npm start $STDIO
+  else
+    npm start
+  fi
 fi 
