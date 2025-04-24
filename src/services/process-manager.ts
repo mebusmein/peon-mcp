@@ -1,5 +1,5 @@
 import { ChildProcess, spawn } from "child_process";
-import { ProcessManagerConfig } from "../types/config.types";
+import { ProcessManagerConfig } from "../types/config.types.js";
 
 export interface ManagedProcess {
   id: string;

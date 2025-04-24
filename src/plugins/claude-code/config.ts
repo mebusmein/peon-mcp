@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BasePluginConfigSchema } from "../../types/plugin.types";
+import { BasePluginConfigSchema } from "../../types/plugin.types.js";
 
 // Claude Code plugin configuration schema
 export const ClaudeCodePluginConfigSchema = BasePluginConfigSchema.extend({

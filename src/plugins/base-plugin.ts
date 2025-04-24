@@ -3,8 +3,11 @@ import {
   BasePluginConfig,
   BasePluginConfigSchema,
   SessionContext,
-} from "../types/plugin.types";
-import { Plugin, PluginConfigWithProcessManager } from "../types/plugin.types";
+} from "../types/plugin.types.js";
+import {
+  Plugin,
+  PluginConfigWithProcessManager,
+} from "../types/plugin.types.js";
 
 /**
  * Abstract base class for all plugins

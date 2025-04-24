@@ -1,15 +1,15 @@
 import { Context, FastMCP } from "fastmcp";
 import path from "path";
-import { ConfigLoader } from "./config/config-loader";
-import { ProcessManager } from "./services/process-manager";
-import { PluginManager } from "./services/plugin-manager";
-import { PluginDefinition } from "./types/plugin.types";
-import { SessionContext } from "./types/plugin.types";
+import { ConfigLoader } from "./config/config-loader.js";
+import { ProcessManager } from "./services/process-manager.js";
+import { PluginManager } from "./services/plugin-manager.js";
+import { PluginDefinition } from "./types/plugin.types.js";
+import { SessionContext } from "./types/plugin.types.js";
 
 // Import plugin classes
-import { ClaudeCodePlugin } from "./plugins/claude-code/claude-code-plugin";
-import { GitPlugin } from "./plugins/git/git-plugin";
-import { NpmPlugin } from "./plugins/npm/npm-plugin";
+import { ClaudeCodePlugin } from "./plugins/claude-code/claude-code-plugin.js";
+import { GitPlugin } from "./plugins/git/git-plugin.js";
+import { NpmPlugin } from "./plugins/npm/npm-plugin.js";
 
 // Define available plugins
 const availablePlugins: PluginDefinition[] = [

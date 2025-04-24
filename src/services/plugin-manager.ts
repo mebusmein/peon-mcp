@@ -4,9 +4,9 @@ import {
   PluginConstructor,
   SessionContext,
   PluginDefinition,
-} from "../types/plugin.types";
-import { ServerConfig } from "../types/config.types";
-import { ProcessManager } from "./process-manager";
+} from "../types/plugin.types.js";
+import { ServerConfig } from "../types/config.types.js";
+import { ProcessManager } from "./process-manager.js";
 import path from "path";
 
 export class PluginManager {

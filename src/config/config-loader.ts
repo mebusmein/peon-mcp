@@ -1,7 +1,7 @@
 import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
-import { ServerConfig, ServerConfigSchema } from "../types/config.types";
+import { ServerConfig, ServerConfigSchema } from "../types/config.types.js";
 import dotenv from "dotenv";
 
 /**

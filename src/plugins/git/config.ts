@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BasePluginConfigSchema } from "../../types/plugin.types";
+import { BasePluginConfigSchema } from "../../types/plugin.types.js";
 
 // Git plugin configuration schema
 export const GitPluginConfigSchema = BasePluginConfigSchema.extend({

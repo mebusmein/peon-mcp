@@ -1,8 +1,8 @@
 import { FastMCP } from "fastmcp";
-import { BasePlugin } from "../base-plugin";
-import { ProcessManager } from "../../services/process-manager";
-import { PluginConfigWithProcessManager } from "../../types/plugin.types";
-import { validateConfig, ClaudeCodePluginConfig } from "./config";
+import { BasePlugin } from "../base-plugin.js";
+import { ProcessManager } from "../../services/process-manager.js";
+import { PluginConfigWithProcessManager } from "../../types/plugin.types.js";
+import { validateConfig, ClaudeCodePluginConfig } from "./config.js";
 import crypto from "crypto";
 import { z } from "zod";
 /**
