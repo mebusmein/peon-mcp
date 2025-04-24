@@ -14,15 +14,12 @@ export interface SessionContext extends Record<string, unknown> {
 
 export type BasePluginConfig = z.infer<typeof BasePluginConfigSchema>;
 
-// Tool description interface
-export interface ToolDescription extends Tool<SessionContext> {}
-
 // Plugin interface that all plugins must implement
 export interface Plugin {
   name: string;
   description: string;
   initialize(mcp: FastMCP<SessionContext>): Promise<void>;
-  getTools(): ToolDescription[];
+  getTools(): Tool<SessionContext, any>[];
   shutdown(): Promise<void>;
 }
 

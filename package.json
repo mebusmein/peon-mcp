@@ -1,6 +1,6 @@
 {
   "name": "peon-mcp",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Peon-mcp is a modular mcp server that can be used to expose a ai enhanced workspace",
   "license": "ISC",
   "author": "Tim Mein",

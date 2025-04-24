@@ -1,14 +1,10 @@
-import { FastMCP } from "fastmcp";
+import { FastMCP, Tool, ToolParameters } from "fastmcp";
 import {
   BasePluginConfig,
   BasePluginConfigSchema,
   SessionContext,
 } from "../types/plugin.types";
-import {
-  Plugin,
-  ToolDescription,
-  PluginConfigWithProcessManager,
-} from "../types/plugin.types";
+import { Plugin, PluginConfigWithProcessManager } from "../types/plugin.types";
 
 /**
  * Abstract base class for all plugins
@@ -16,7 +12,7 @@ import {
  */
 export abstract class BasePlugin implements Plugin {
   protected config: BasePluginConfig;
-  protected tools: ToolDescription[] = [];
+  protected tools: Tool<SessionContext, any>[] = [];
 
   constructor(config: PluginConfigWithProcessManager) {
     // Extract the base plugin config with defaults
@@ -73,7 +69,7 @@ export abstract class BasePlugin implements Plugin {
    * Get the tools provided by this plugin
    * @returns Array of tool descriptions
    */
-  getTools(): ToolDescription[] {
+  getTools(): Tool<SessionContext, any>[] {
     if (!this.isEnabled) {
       return [];
     }
@@ -84,7 +80,9 @@ export abstract class BasePlugin implements Plugin {
    * Add a tool to this plugin
    * @param tool Tool description to add
    */
-  protected addTool(tool: ToolDescription): void {
+  protected addTool<TParams extends ToolParameters>(
+    tool: Tool<SessionContext, TParams>
+  ): void {
     this.tools.push(tool);
   }
 
