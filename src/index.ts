@@ -3,8 +3,33 @@ import path from "path";
 import { ConfigLoader } from "./config/config-loader";
 import { ProcessManager } from "./services/process-manager";
 import { PluginManager } from "./services/plugin-manager";
-import { z } from "zod";
+import { PluginDefinition } from "./types/plugin.types";
 import { SessionContext } from "./types/plugin.types";
+
+// Import plugin classes
+import { ClaudeCodePlugin } from "./plugins/claude-code/claude-code-plugin";
+import { GitPlugin } from "./plugins/git/git-plugin";
+import { NpmPlugin } from "./plugins/npm/npm-plugin";
+
+// Define available plugins
+const availablePlugins: PluginDefinition[] = [
+  {
+    name: "claudeCode",
+    pluginClass: ClaudeCodePlugin,
+    configKey: "claudeCode",
+  },
+  {
+    name: "git",
+    pluginClass: GitPlugin,
+    configKey: "git",
+  },
+  {
+    name: "npm",
+    pluginClass: NpmPlugin,
+    configKey: "npm",
+  },
+];
+
 /**
  * Main entry point for the MCP server
  */
@@ -33,8 +58,8 @@ async function main() {
     // Create the plugin manager
     const pluginManager = new PluginManager(mcp, config, processManager);
 
-    // Load plugins
-    await pluginManager.loadPlugins();
+    // Load and register plugins
+    await pluginManager.loadPlugins(availablePlugins);
 
     // Start the server
     await mcp.start({

@@ -1,39 +1,26 @@
 import { FastMCP } from "fastmcp";
 import { BasePlugin } from "../base-plugin";
-import { GitPluginConfig } from "../../types/config.types";
 import { ProcessManager } from "../../services/process-manager";
 import { PluginConfigWithProcessManager } from "../../types/plugin.types";
-import { execSync, exec } from "child_process";
+import { validateConfig, GitPluginConfig } from "./config";
+import { exec } from "child_process";
 import { promisify } from "util";
 import { z } from "zod";
+
 const execAsync = promisify(exec);
 
 /**
  * Git Plugin for interacting with git repositories
  */
 export class GitPlugin extends BasePlugin {
-  private gitConfig: {
-    allowedCommands: string[];
-    branchTemplates?: Record<string, string>;
-    defaultBranchTemplate?: string;
-  };
+  private gitConfig: GitPluginConfig;
   private processManager: ProcessManager;
 
   constructor(config: PluginConfigWithProcessManager) {
     super(config);
 
-    // Set up default configuration and merge with provided config
-    this.gitConfig = {
-      allowedCommands: [
-        "status",
-        "commit",
-        "push",
-        "pull",
-        "branch",
-        "checkout",
-      ],
-      ...config,
-    };
+    // Validate and set plugin-specific config
+    this.gitConfig = validateConfig(config);
     this.processManager = config.processManager;
 
     // Register the tools

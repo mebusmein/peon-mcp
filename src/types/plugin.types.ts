@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FastMCP, FastMCPSession, Tool, ToolParameters } from "fastmcp";
+import { FastMCP, Tool } from "fastmcp";
 import { ProcessManager } from "../services/process-manager";
 
 // Base plugin configuration schema
@@ -36,3 +36,10 @@ export interface PluginConfigWithProcessManager {
 export type PluginConstructor = new (
   config: PluginConfigWithProcessManager
 ) => Plugin;
+
+// Plugin definition for registration
+export interface PluginDefinition {
+  name: string;
+  pluginClass: PluginConstructor;
+  configKey?: string; // Optional key to locate config in the server config
+}

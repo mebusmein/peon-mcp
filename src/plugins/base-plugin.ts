@@ -1,5 +1,9 @@
 import { FastMCP } from "fastmcp";
-import { BasePluginConfig } from "../types/plugin.types";
+import {
+  BasePluginConfig,
+  BasePluginConfigSchema,
+  SessionContext,
+} from "../types/plugin.types";
 import {
   Plugin,
   ToolDescription,
@@ -15,11 +19,23 @@ export abstract class BasePlugin implements Plugin {
   protected tools: ToolDescription[] = [];
 
   constructor(config: PluginConfigWithProcessManager) {
-    // Extract the base plugin config
+    // Extract the base plugin config with defaults
     this.config = {
-      enabled: config.enabled !== undefined ? config.enabled : true,
+      enabled: true,
+      ...config,
       description: config.description,
     };
+
+    // Validate with schema
+    try {
+      this.config = BasePluginConfigSchema.parse(this.config);
+    } catch (error) {
+      console.warn(
+        `Invalid base configuration for plugin. Using defaults.`,
+        error
+      );
+      this.config = BasePluginConfigSchema.parse({});
+    }
   }
 
   /**
@@ -35,11 +51,22 @@ export abstract class BasePlugin implements Plugin {
   }
 
   /**
+   * Check if the plugin is enabled
+   */
+  get isEnabled(): boolean {
+    return this.config.enabled !== false;
+  }
+
+  /**
    * Initialize the plugin with the MCP server
    * @param mcp The MCP server instance
    */
-  async initialize(mcp: FastMCP): Promise<void> {
+  async initialize(mcp: FastMCP<SessionContext>): Promise<void> {
     // Override in subclasses to perform initialization
+    if (!this.isEnabled) {
+      console.log(`Plugin ${this.name} is disabled, skipping initialization`);
+      return;
+    }
   }
 
   /**
@@ -47,6 +74,9 @@ export abstract class BasePlugin implements Plugin {
    * @returns Array of tool descriptions
    */
   getTools(): ToolDescription[] {
+    if (!this.isEnabled) {
+      return [];
+    }
     return this.tools;
   }
 

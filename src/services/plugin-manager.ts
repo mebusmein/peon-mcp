@@ -1,8 +1,9 @@
-import { FastMCP, Tool, ToolParameters } from "fastmcp";
+import { FastMCP } from "fastmcp";
 import {
   Plugin,
   PluginConstructor,
   SessionContext,
+  PluginDefinition,
 } from "../types/plugin.types";
 import { ServerConfig } from "../types/config.types";
 import { ProcessManager } from "./process-manager";
@@ -47,22 +48,31 @@ export class PluginManager {
       this.plugins.set(pluginName, plugin);
 
       // Initialize the plugin
+      console.log(`Initializing plugin: ${pluginName}`);
       await plugin.initialize(this.mcp);
 
       // Register plugin tools with MCP
       const tools = plugin.getTools();
-      for (const tool of tools) {
-        this.mcp.addTool({
-          name: tool.name,
-          description: tool.description,
-          parameters: tool.parameters,
-          execute: tool.execute,
-        } as Tool<SessionContext>);
-      }
-
       console.log(
-        `Plugin "${pluginName}" successfully registered with ${tools.length} tools`
+        `Plugin "${pluginName}" has ${tools.length} tools to register`
       );
+
+      for (const tool of tools) {
+        // Register the tool using addTool with proper structure
+        try {
+          this.mcp.addTool({
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.parameters,
+            execute: async (args: any, context: any) => {
+              // Call the plugin tool function with the arguments
+              return await tool.execute(args, context);
+            },
+          });
+        } catch (error) {
+          console.error(`Failed to register tool ${tool.name}:`, error);
+        }
+      }
 
       return plugin;
     } catch (error) {
@@ -72,56 +82,43 @@ export class PluginManager {
   }
 
   /**
-   * Load all plugins from the plugins directory
+   * Load plugins from plugin definitions
+   * @param pluginDefinitions Array of plugin definitions
    */
-  async loadPlugins(): Promise<void> {
-    console.log("Loading plugins...");
+  async loadPlugins(pluginDefinitions: PluginDefinition[]): Promise<void> {
+    console.log(`Loading ${pluginDefinitions.length} plugins...`);
 
-    const pluginsConfig = this.config.plugins;
-
-    // Load claude-code plugin if enabled
-    if (pluginsConfig.claudeCode.enabled) {
+    for (const definition of pluginDefinitions) {
       try {
-        const { ClaudeCodePlugin } = await import(
-          "../plugins/claude-code/claude-code-plugin"
+        // Get plugin config from server config or use empty object
+        const configKey = definition.configKey || definition.name;
+        const pluginConfig =
+          (this.config.plugins as Record<string, any>)[configKey] || {};
+
+        // Skip disabled plugins
+        if (pluginConfig.enabled === false) {
+          console.log(`Skipping disabled plugin: ${definition.name}`);
+          continue;
+        }
+
+        // Add process manager to plugin config
+        const fullConfig = {
+          ...pluginConfig,
+          processManager: this.processManager,
+        };
+
+        // Register the plugin
+        await this.registerPlugin(
+          definition.name,
+          definition.pluginClass,
+          fullConfig
         );
-        await this.registerPlugin("claudeCode", ClaudeCodePlugin, {
-          ...pluginsConfig.claudeCode,
-          processManager: this.processManager,
-        });
-        console.log("Claude Code plugin loaded successfully");
       } catch (error) {
-        console.error("Failed to load Claude Code plugin:", error);
+        console.error(`Failed to load plugin ${definition.name}:`, error);
       }
     }
 
-    // Load git plugin if enabled
-    if (pluginsConfig.git.enabled) {
-      try {
-        const { GitPlugin } = await import("../plugins/git/git-plugin");
-        await this.registerPlugin("git", GitPlugin, {
-          ...pluginsConfig.git,
-          processManager: this.processManager,
-        });
-        console.log("Git plugin loaded successfully");
-      } catch (error) {
-        console.error("Failed to load Git plugin:", error);
-      }
-    }
-
-    // Load npm plugin if enabled
-    if (pluginsConfig.npm.enabled) {
-      try {
-        const { NpmPlugin } = await import("../plugins/npm/npm-plugin");
-        await this.registerPlugin("npm", NpmPlugin, {
-          ...pluginsConfig.npm,
-          processManager: this.processManager,
-        });
-        console.log("NPM plugin loaded successfully");
-      } catch (error) {
-        console.error("Failed to load NPM plugin:", error);
-      }
-    }
+    console.log(`Successfully loaded ${this.plugins.size} plugins`);
   }
 
   /**

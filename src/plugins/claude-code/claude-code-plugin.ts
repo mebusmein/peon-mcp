@@ -1,29 +1,21 @@
 import { FastMCP } from "fastmcp";
 import { BasePlugin } from "../base-plugin";
-import { ClaudeCodePluginConfig } from "../../types/config.types";
 import { ProcessManager } from "../../services/process-manager";
 import { PluginConfigWithProcessManager } from "../../types/plugin.types";
+import { validateConfig, ClaudeCodePluginConfig } from "./config";
 import crypto from "crypto";
 import { z } from "zod";
 /**
  * Claude Code Plugin for interacting with Claude AI processes
  */
 export class ClaudeCodePlugin extends BasePlugin {
-  private claudeConfig: {
-    apiKey?: string;
-    defaultModel: string;
-    timeoutMs: number;
-  };
+  private claudeConfig: ClaudeCodePluginConfig;
   private processManager: ProcessManager;
 
   constructor(config: PluginConfigWithProcessManager) {
     super(config);
-    // Set default values then override with provided config
-    this.claudeConfig = {
-      defaultModel: "claude-3-sonnet-20240229",
-      timeoutMs: 60000,
-      ...config,
-    };
+    // Validate and set plugin-specific config
+    this.claudeConfig = validateConfig(config);
     this.processManager = config.processManager;
 
     // Register the tools

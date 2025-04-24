@@ -1,42 +1,26 @@
 import { FastMCP } from "fastmcp";
 import { BasePlugin } from "../base-plugin";
-import { NpmPluginConfig } from "../../types/config.types";
-import { PluginConfigWithProcessManager } from "../../types/plugin.types";
 import { ProcessManager, ManagedProcess } from "../../services/process-manager";
+import { PluginConfigWithProcessManager } from "../../types/plugin.types";
+import { validateConfig, NpmPluginConfig } from "./config";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { z } from "zod";
+
 const execAsync = promisify(exec);
 
 /**
  * NPM Plugin for interacting with npm package manager
  */
 export class NpmPlugin extends BasePlugin {
-  private npmConfig: {
-    mode: "whitelist" | "blacklist";
-    allowedCommands: string[];
-    blockedCommands: string[];
-    commandConfig?: Record<
-      string,
-      {
-        allowedArgs?: string[];
-        blockedArgs?: string[];
-        description?: string;
-      }
-    >;
-  };
+  private npmConfig: NpmPluginConfig;
   private processManager: ProcessManager;
 
   constructor(config: PluginConfigWithProcessManager) {
     super(config);
 
-    // Set up default configuration and merge with provided config
-    this.npmConfig = {
-      mode: "whitelist",
-      allowedCommands: ["install", "run", "test"],
-      blockedCommands: ["publish", "config"],
-      ...config,
-    };
+    // Validate and set plugin-specific config
+    this.npmConfig = validateConfig(config);
     this.processManager = config.processManager;
 
     // Register the tools
