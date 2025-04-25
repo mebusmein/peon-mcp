@@ -1,13 +1,17 @@
-import { FastMCP, Tool, ToolParameters } from "fastmcp";
-import {
+import type { FastMCP, Tool, ToolParameters } from "fastmcp";
+import type {
   BasePluginConfig,
-  BasePluginConfigSchema,
-  SessionContext,
-} from "../types/plugin.types.js";
+  SessionContext} from "../types/plugin.types.js";
 import {
+  BasePluginConfigSchema
+} from "../types/plugin.types.js";
+import type {
   Plugin,
   PluginConfigWithProcessManager,
 } from "../types/plugin.types.js";
+import { logger } from "../services/logging/index.js";
+
+const pluginLogger = logger.withPrefix("Plugin");
 
 /**
  * Abstract base class for all plugins
@@ -63,7 +67,9 @@ export abstract class BasePlugin implements Plugin {
   async initialize(mcp: FastMCP<SessionContext>): Promise<void> {
     // Override in subclasses to perform initialization
     if (!this.isEnabled) {
-      console.log(`Plugin ${this.name} is disabled, skipping initialization`);
+      pluginLogger.info(
+        `Plugin ${this.name} is disabled, skipping initialization`
+      );
       return;
     }
   }

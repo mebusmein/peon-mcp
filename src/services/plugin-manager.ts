@@ -1,23 +1,27 @@
-import { FastMCP } from "fastmcp";
-import {
+import type { FastMCP } from "fastmcp";
+import type {
   Plugin,
   PluginConstructor,
   SessionContext,
   PluginDefinition,
 } from "../types/plugin.types.js";
-import { ServerConfig } from "../types/config.types.js";
-import { ProcessManager } from "./process-manager.js";
+import type { Config } from "../config/types/config.js";
+import type { ProcessManager } from "./process-manager.js";
 import path from "path";
+import { logger } from "./logging/index.js";
+
+// Create a logger for this service
+const pluginLogger = logger.withPrefix("PluginManager");
 
 export class PluginManager {
   private plugins: Map<string, Plugin> = new Map();
   private mcp: FastMCP<SessionContext>;
-  private config: ServerConfig;
+  private config: Config;
   private processManager: ProcessManager;
 
   constructor(
     mcp: FastMCP<SessionContext>,
-    config: ServerConfig,
+    config: Config,
     processManager: ProcessManager
   ) {
     this.mcp = mcp;
@@ -48,13 +52,15 @@ export class PluginManager {
       this.plugins.set(pluginName, plugin);
 
       // Initialize the plugin
-      console.log(`Initializing plugin: ${pluginName}`);
+      pluginLogger.debug("Initializing plugin %s", pluginName);
       await plugin.initialize(this.mcp);
 
       // Register plugin tools with MCP
       const tools = plugin.getTools();
-      console.log(
-        `Plugin "${pluginName}" has ${tools.length} tools to register`
+      pluginLogger.debug(
+        "Plugin %s has %d tools to register",
+        pluginName,
+        tools.length
       );
 
       for (const tool of tools) {
@@ -70,13 +76,26 @@ export class PluginManager {
             },
           });
         } catch (error) {
-          console.error(`Failed to register tool ${tool.name}:`, error);
+          pluginLogger.error(
+            "Failed to register tool %s: %s",
+            tool.name,
+            error
+          );
         }
       }
 
+      pluginLogger.info(
+        "Plugin %s registered successfully with %d tools",
+        pluginName,
+        tools.length
+      );
       return plugin;
     } catch (error) {
-      console.error(`Failed to register plugin "${pluginName}":`, error);
+      pluginLogger.error(
+        "Failed to initialize plugin %s: %s",
+        pluginName,
+        error
+      );
       throw error;
     }
   }
@@ -86,7 +105,10 @@ export class PluginManager {
    * @param pluginDefinitions Array of plugin definitions
    */
   async loadPlugins(pluginDefinitions: PluginDefinition[]): Promise<void> {
-    console.log(`Loading ${pluginDefinitions.length} plugins...`);
+    pluginLogger.info(
+      "Initializing loading of %d plugins...",
+      pluginDefinitions.length
+    );
 
     for (const definition of pluginDefinitions) {
       try {
@@ -97,7 +119,7 @@ export class PluginManager {
 
         // Skip disabled plugins
         if (pluginConfig.enabled === false) {
-          console.log(`Skipping disabled plugin: ${definition.name}`);
+          pluginLogger.info("Skipping disabled plugin: %s", definition.name);
           continue;
         }
 
@@ -114,11 +136,15 @@ export class PluginManager {
           fullConfig
         );
       } catch (error) {
-        console.error(`Failed to load plugin ${definition.name}:`, error);
+        pluginLogger.error(
+          "Failed to load plugin %s: %s",
+          definition.name,
+          error
+        );
       }
     }
 
-    console.log(`Successfully loaded ${this.plugins.size} plugins`);
+    pluginLogger.info("Successfully loaded %d plugins", this.plugins.size);
   }
 
   /**
@@ -146,7 +172,11 @@ export class PluginManager {
       try {
         await plugin.shutdown();
       } catch (error) {
-        console.error(`Error shutting down plugin "${plugin.name}":`, error);
+        pluginLogger.error(
+          "Error shutting down plugin %s: %s",
+          plugin.name,
+          error
+        );
       }
     }
     this.plugins.clear();

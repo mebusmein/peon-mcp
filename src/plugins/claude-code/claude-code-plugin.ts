@@ -1,11 +1,13 @@
-import { Context, FastMCP } from "fastmcp";
+import type { Context} from "fastmcp";
+import { FastMCP } from "fastmcp";
 import { BasePlugin } from "../base-plugin.js";
-import { ProcessManager } from "../../services/process-manager.js";
-import {
+import type { ProcessManager } from "../../services/process-manager.js";
+import type {
   PluginConfigWithProcessManager,
   SessionContext,
 } from "../../types/plugin.types.js";
-import { validateConfig, ClaudeCodePluginConfig } from "./config.js";
+import type { ClaudeCodePluginConfig } from "./config.js";
+import { validateConfig } from "./config.js";
 import crypto from "crypto";
 import { z } from "zod";
 /**

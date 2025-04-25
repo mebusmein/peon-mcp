@@ -1,8 +1,9 @@
 import { FastMCP } from "fastmcp";
 import { BasePlugin } from "../base-plugin.js";
-import { ProcessManager } from "../../services/process-manager.js";
-import { PluginConfigWithProcessManager } from "../../types/plugin.types.js";
-import { validateConfig, GitPluginConfig } from "./config.js";
+import type { ProcessManager } from "../../services/process-manager.js";
+import type { PluginConfigWithProcessManager } from "../../types/plugin.types.js";
+import type { GitPluginConfig } from "./config.js";
+import { validateConfig } from "./config.js";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { z } from "zod";

@@ -1,5 +1,6 @@
 import { CommandRunner } from "./command-runner.js";
-import { ProcessManagerConfig } from "../types/config.types.js";
+import type { ProcessManagerConfig } from "../types/config.types.js";
+import { logger } from "./logging/index.js";
 
 export interface ManagedProcess {
   id: string;
@@ -10,6 +11,9 @@ export interface ManagedProcess {
   status: "running" | "stopped" | "error";
   metadata: Record<string, any>;
 }
+
+// Create a logger for this service
+const processLogger = logger.withPrefix("ProcessManager");
 
 export class ProcessManager {
   private processes: Map<string, ManagedProcess> = new Map();
@@ -44,9 +48,10 @@ export class ProcessManager {
       throw new Error(`Process with ID "${id}" already exists`);
     }
 
-    console.log(`[${id}]: starting process ${command} ${args.join(" ")}`);
+    processLogger.info("Starting process %s %s", command, args.join(" "));
 
     const runner = new CommandRunner({
+      id,
       command,
       args,
       commandTimeout: 30000,
@@ -67,11 +72,11 @@ export class ProcessManager {
 
     // Set up event handlers
     runner.onData((data: string) => {
-      console.log(`[${id}]: ${data}`);
+      processLogger.debug("[%s]: %s", id, data);
     });
 
     runner.onExit((exitCode: number) => {
-      console.log(`[${id}]: process exited with code ${exitCode}`);
+      processLogger.debug("[%s]: Process exited with code %d", id, exitCode);
       if (exitCode !== 0) {
         managedProcess.status = "error";
       } else {
@@ -82,7 +87,7 @@ export class ProcessManager {
     try {
       await runner.start();
     } catch (error) {
-      console.error(`[${id}]: failed to start process`, error);
+      processLogger.error("[%s]: Failed to start process: %s", id, error);
       managedProcess.status = "error";
     }
 
@@ -220,7 +225,7 @@ export class ProcessManager {
       metadata?: Record<string, any>;
     } = {}
   ): Promise<string> {
-    console.log(`Running command ${command} ${args.join(" ")}`);
+    processLogger.info("Running command %s %s", command, args.join(" "));
 
     const runner = new CommandRunner({
       command,
@@ -233,7 +238,7 @@ export class ProcessManager {
       // This will start the process, run the command, and then stop the process
       return await runner.runSingleCommand();
     } catch (error) {
-      console.error(`Failed to run command : ${command}`, error);
+      processLogger.error("Failed to run command %s: %s", command, error);
       throw error;
     }
   }

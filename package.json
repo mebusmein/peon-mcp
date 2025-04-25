@@ -19,8 +19,12 @@
     "zod": "^3.24.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.25.1",
     "@types/node": "^20.11.5",
+    "eslint": "^9.25.1",
+    "globals": "^16.0.0",
     "tsx": "^4.19.3",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.31.0"
   }
 }

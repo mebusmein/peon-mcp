@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { FastMCP, Tool } from "fastmcp";
-import { ProcessManager } from "../services/process-manager.js";
+import type { FastMCP, Tool } from "fastmcp";
+import type { ProcessManager } from "../services/process-manager.js";
 
 // Base plugin configuration schema
 export const BasePluginConfigSchema = z.object({

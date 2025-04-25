@@ -1,7 +1,9 @@
 // import { spawn } from "child_process";
 import ansiRegex from "ansi-regex";
 import * as pty from "node-pty";
-import { IPty } from "node-pty";
+import type { IPty } from "node-pty";
+import { logger } from "./logging/index.js";
+import type { ILogger } from "./logging/ILoggerConfig.js";
 
 // Default configuration
 const DEFAULT_COMMAND_TIMEOUT = 10000;
@@ -9,6 +11,7 @@ const DEFAULT_CONNECTION_TIMEOUT = 15000;
 
 // Configuration interface
 export interface CommandRunnerConfig {
+  id: string;
   command: string; // Main command to run
   args?: string[]; // Command arguments
   cwd?: string; // Working directory
@@ -17,6 +20,9 @@ export interface CommandRunnerConfig {
   commandTimeout?: number; // Timeout for commands in milliseconds
   connectionTimeout?: number; // Timeout for connection in milliseconds
 }
+
+// Create a logger for this service
+const commandLogger = logger.withPrefix("CommandRunner");
 
 export class CommandRunner {
   private process: IPty | null = null;
@@ -37,10 +43,12 @@ export class CommandRunner {
   private onDataListeners: ((data: string) => void)[] = [];
   private onErrorListeners: ((data: string) => void)[] = [];
   private onExitListeners: ((exitCode: number) => void)[] = [];
+  private logger: ILogger;
 
   constructor(config: CommandRunnerConfig) {
     // Apply defaults for optional configuration parameters
     this.config = {
+      id: config.id,
       command: config.command,
       args: config.args || [],
       cwd: config.cwd,
@@ -49,6 +57,8 @@ export class CommandRunner {
       commandTimeout: config.commandTimeout || DEFAULT_COMMAND_TIMEOUT,
       connectionTimeout: config.connectionTimeout || DEFAULT_CONNECTION_TIMEOUT,
     };
+
+    this.logger = commandLogger.withPrefix(this.config.id);
 
     // Validate configuration
     if (!this.config.command) {
@@ -77,21 +87,11 @@ export class CommandRunner {
     this.onExitListeners.push(listener);
   }
 
-  start({ singleCommand }: { singleCommand?: boolean } = {}): Promise<
-    void | string
-  > {
+  start(): Promise<void> {
     return new Promise((resolve, reject) => {
       // If already connected, return immediately
       if (this.isConnected && this.process) {
         return resolve();
-      }
-
-      if (singleCommand) {
-        this.currentCommand = {
-          command: "",
-          resolve,
-          reject,
-        };
       }
 
       // Spawn the process
@@ -108,7 +108,7 @@ export class CommandRunner {
       // Set up event handlers for the process
       this.process.onData((data) => {
         const output = data.toString();
-        console.log(`[${this.config.command}] Output:`, output);
+        this.logger.debug("Output: %s", output);
         this.outputBuffer += output;
 
         // Notify listeners
@@ -119,9 +119,7 @@ export class CommandRunner {
       });
 
       this.process.onExit((e) => {
-        console.log(
-          `[${this.config.command}] Process exited with code ${e.exitCode}`
-        );
+        this.logger.debug("Process exited with code %d", e.exitCode);
 
         // Notify listeners
         this.onExitListeners.forEach((listener) => listener(e.exitCode));
@@ -166,7 +164,7 @@ export class CommandRunner {
           clearTimeout(timeout);
           this.isConnected = true;
           this.outputBuffer = "";
-          console.log(`[${this.config.command}] Process started successfully`);
+          this.logger.info("Process started successfully");
           resolve();
         } else if (
           this.errorBuffer.includes("Error") ||
@@ -217,7 +215,7 @@ export class CommandRunner {
         return reject(new Error(`Process not running: ${this.config.command}`));
       }
 
-      console.log(`[${this.config.command}] Executing command: ${command}`);
+      this.logger.debug("Executing command: %s", command);
 
       // Queue this command for execution
       this.queueCommand(command, resolve, reject);
@@ -307,8 +305,8 @@ export class CommandRunner {
       "\n# ",
       "\r\n# ",
       // Prompts that may have ANSI color codes
-      /\n\x1b\[[0-9;]*m[$#]/,
-      /\r\n\x1b\[[0-9;]*m[$#]/,
+      // /\n\x1b\[[0-9;]*m[$#]/,
+      // /\r\n\x1b\[[0-9;]*m[$#]/,
       // Common bash/zsh prompt endings
       "\n% ",
       "\r\n% ",
@@ -338,14 +336,12 @@ export class CommandRunner {
 
   stop(): void {
     if (this.process) {
-      console.log(`[${this.config.command}] Terminating process.`);
+      this.logger.debug("Terminating process");
       this.process.kill();
       this.process = null;
       this.isConnected = false;
     } else {
-      console.log(
-        `[${this.config.command}] Process already terminated or not established.`
-      );
+      this.logger.debug("Process already terminated or not established");
     }
   }
 
