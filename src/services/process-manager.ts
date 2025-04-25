@@ -1,9 +1,9 @@
-import { ChildProcess, spawn } from "child_process";
+import { CommandRunner } from "./command-runner.js";
 import { ProcessManagerConfig } from "../types/config.types.js";
 
 export interface ManagedProcess {
   id: string;
-  process: ChildProcess;
+  runner: CommandRunner;
   command: string;
   args: string[];
   startTime: Date;
@@ -44,14 +44,18 @@ export class ProcessManager {
       throw new Error(`Process with ID "${id}" already exists`);
     }
 
-    const childProcess = spawn(command, args, {
-      shell: true,
-      stdio: ["pipe", "pipe", "pipe"],
+    console.log(`[${id}]: starting process ${command} ${args.join(" ")}`);
+
+    const runner = new CommandRunner({
+      command,
+      args,
+      commandTimeout: 30000,
+      connectionTimeout: 15000,
     });
 
     const managedProcess: ManagedProcess = {
       id,
-      process: childProcess,
+      runner,
       command,
       args,
       startTime: new Date(),
@@ -61,18 +65,26 @@ export class ProcessManager {
 
     this.processes.set(id, managedProcess);
 
-    // Handle process exit
-    childProcess.on("exit", (code) => {
-      if (code !== 0) {
+    // Set up event handlers
+    runner.onData((data: string) => {
+      console.log(`[${id}]: ${data}`);
+    });
+
+    runner.onExit((exitCode: number) => {
+      console.log(`[${id}]: process exited with code ${exitCode}`);
+      if (exitCode !== 0) {
         managedProcess.status = "error";
       } else {
         managedProcess.status = "stopped";
       }
     });
 
-    childProcess.on("error", () => {
+    try {
+      await runner.start();
+    } catch (error) {
+      console.error(`[${id}]: failed to start process`, error);
       managedProcess.status = "error";
-    });
+    }
 
     return managedProcess;
   }
@@ -89,7 +101,7 @@ export class ProcessManager {
     }
 
     if (managedProcess.status === "running") {
-      managedProcess.process.kill();
+      managedProcess.runner.stop();
       managedProcess.status = "stopped";
     }
 
@@ -114,12 +126,63 @@ export class ProcessManager {
   }
 
   /**
+   * Execute a command in a process and return its output
+   * @param id Process ID to execute command in
+   * @param command Command to execute
+   * @returns Promise with command output
+   */
+  async executeProcessCommand(id: string, command: string): Promise<string> {
+    const managedProcess = this.processes.get(id);
+    if (!managedProcess) {
+      throw new Error(`Process with ID "${id}" not found`);
+    }
+
+    if (managedProcess.status !== "running") {
+      throw new Error(`Process with ID "${id}" is not running`);
+    }
+
+    return managedProcess.runner.executeCommand(command);
+  }
+
+  /**
+   * Write input to a running process
+   * @param id Process ID
+   * @param input Text to write to process stdin
+   */
+  async writeToProcess(id: string, input: string): Promise<void> {
+    const managedProcess = this.processes.get(id);
+    if (!managedProcess) {
+      throw new Error(`Process with ID "${id}" not found`);
+    }
+
+    if (managedProcess.status !== "running") {
+      throw new Error(`Process with ID "${id}" is not running`);
+    }
+
+    managedProcess.runner.write(input);
+  }
+
+  /**
+   * Get current output buffer from a process
+   * @param id Process ID
+   * @returns Current output buffer content
+   */
+  getProcessOutput(id: string): string {
+    const managedProcess = this.processes.get(id);
+    if (!managedProcess) {
+      throw new Error(`Process with ID "${id}" not found`);
+    }
+
+    return managedProcess.runner.getOutput();
+  }
+
+  /**
    * Cleanup all processes
    */
   async shutdown(): Promise<void> {
     for (const process of this.processes.values()) {
       if (process.status === "running") {
-        process.process.kill();
+        process.runner.stop();
       }
     }
     this.processes.clear();
@@ -140,5 +203,38 @@ export class ProcessManager {
         }
       }
     }, this.config.checkIntervalMs);
+  }
+
+  /**
+   * Run a single command and return the output without keeping the process running
+   * @param command Command to start the process with
+   * @param args Command arguments for the main process
+   * @param options Additional options
+   * @returns Promise with command output
+   */
+  async runCommand(
+    command: string,
+    args: string[] = [],
+    options: {
+      timeout?: number;
+      metadata?: Record<string, any>;
+    } = {}
+  ): Promise<string> {
+    console.log(`Running command ${command} ${args.join(" ")}`);
+
+    const runner = new CommandRunner({
+      command,
+      args,
+      commandTimeout: options.timeout || 30000,
+      connectionTimeout: options.timeout || 15000,
+    });
+
+    try {
+      // This will start the process, run the command, and then stop the process
+      return await runner.runSingleCommand();
+    } catch (error) {
+      console.error(`Failed to run command : ${command}`, error);
+      throw error;
+    }
   }
 }

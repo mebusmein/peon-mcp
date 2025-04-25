@@ -18,16 +18,16 @@ const availablePlugins: PluginDefinition[] = [
     pluginClass: ClaudeCodePlugin,
     configKey: "claudeCode",
   },
-  {
-    name: "git",
-    pluginClass: GitPlugin,
-    configKey: "git",
-  },
-  {
-    name: "npm",
-    pluginClass: NpmPlugin,
-    configKey: "npm",
-  },
+  // {
+  //   name: "git",
+  //   pluginClass: GitPlugin,
+  //   configKey: "git",
+  // },
+  // {
+  //   name: "npm",
+  //   pluginClass: NpmPlugin,
+  //   configKey: "npm",
+  // },
 ];
 
 /**
@@ -98,8 +98,16 @@ async function main() {
       name: "peon-mcp",
       version: "1.0.0",
       authenticate: async (request) => {
+        const id = "testing";
+
+        // if no base process start one
+        const process = processManager.getProcess(`base-process-${id}`);
+        if (!process) {
+          await processManager.startProcess(`base-process-${id}`, "bash");
+        }
+
         return {
-          id: "2",
+          id: id,
         };
       },
     });
