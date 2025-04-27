@@ -1,15 +1,10 @@
 import { FastMCP } from "fastmcp";
 import { BasePlugin } from "../base-plugin.js";
-import type {
-  ProcessManager} from "../../services/process-manager.js";
-import {
-  ManagedProcess,
-} from "../../services/process-manager.js";
-import type { PluginConfigWithProcessManager } from "../../types/plugin.types.js";
-import type { NpmPluginConfig } from "./config.js";
-import { validateConfig } from "./config.js";
 import { exec } from "child_process";
 import { promisify } from "util";
+import type { PluginConfigWithContext } from "../../types/plugin.types.js";
+import type { NpmPluginConfig } from "./config.js";
+import { validateConfig } from "./config.js";
 import { z } from "zod";
 
 const execAsync = promisify(exec);
@@ -19,14 +14,12 @@ const execAsync = promisify(exec);
  */
 export class NpmPlugin extends BasePlugin {
   private npmConfig: NpmPluginConfig;
-  private processManager: ProcessManager;
 
-  constructor(config: PluginConfigWithProcessManager) {
+  constructor(config: PluginConfigWithContext) {
     super(config);
 
     // Validate and set plugin-specific config
     this.npmConfig = validateConfig(config);
-    this.processManager = config.processManager;
 
     // Register the tools
     this.registerTools();
@@ -70,25 +63,8 @@ export class NpmPlugin extends BasePlugin {
         script: z.string(),
         args: z.array(z.string()).optional(),
         cwd: z.string().optional(),
-        background: z.boolean().optional(),
       }),
       execute: this.runScript.bind(this),
-    });
-
-    this.addTool({
-      name: "npm_list_running",
-      description: "List currently running npm processes",
-      parameters: z.object({}),
-      execute: this.listRunningProcesses.bind(this),
-    });
-
-    this.addTool({
-      name: "npm_stop_process",
-      description: "Stop a running npm process",
-      parameters: z.object({
-        processId: z.string(),
-      }),
-      execute: this.stopProcess.bind(this),
     });
   }
 
@@ -164,9 +140,6 @@ export class NpmPlugin extends BasePlugin {
       command += " -g";
     }
 
-    // Add packages
-    const packageString = packages.join(" ");
-
     return this.executeNpmCommand({
       command,
       args: packages,
@@ -183,7 +156,6 @@ export class NpmPlugin extends BasePlugin {
     const script = params.script as string;
     const args = (params.args as string[]) || [];
     const cwd = (params.cwd as string) || process.cwd();
-    const background = (params.background as boolean) || false;
 
     if (!script) {
       throw new Error("Script name is required");
@@ -194,174 +166,65 @@ export class NpmPlugin extends BasePlugin {
       throw new Error(`NPM command 'run' is not allowed`);
     }
 
-    // If running in background, use the process manager
-    if (background) {
-      const processId = `npm_run_${script}_${Date.now()}`;
-      const command = "npm";
-      const commandArgs = ["run", script, ...args];
-
-      try {
-        const process = await this.processManager.startProcess(
-          processId,
-          command,
-          commandArgs,
-          {
-            type: "npm",
-            script,
-            cwd,
-          }
-        );
-
-        return {
-          processId,
-          command: `npm run ${script} ${args.join(" ")}`,
-          status: process.status,
-          startTime: process.startTime,
-        };
-      } catch (error) {
-        console.error(
-          `Error starting npm script '${script}' in background:`,
-          error
-        );
-        throw error;
-      }
-    } else {
-      // Run synchronously and return the output
-      return this.executeNpmCommand({
-        command: "run",
-        args: [script, ...args],
-        cwd,
-      });
-    }
-  }
-
-  /**
-   * List running npm processes
-   * @returns List of running processes
-   */
-  private async listRunningProcesses(): Promise<any> {
-    try {
-      const allProcesses = this.processManager.getAllProcesses();
-      const npmProcesses = allProcesses.filter(
-        (p) => p.metadata.type === "npm"
-      );
-
-      return {
-        processes: npmProcesses.map((p) => ({
-          processId: p.id,
-          command: `npm ${p.args.join(" ")}`,
-          script: p.metadata.script,
-          status: p.status,
-          startTime: p.startTime,
-        })),
-        count: npmProcesses.length,
-      };
-    } catch (error) {
-      console.error("Error listing npm processes:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Stop a running npm process
-   * @param params Tool parameters with processId
-   * @returns Status of the operation
-   */
-  private async stopProcess(params: Record<string, any>): Promise<any> {
-    const processId = params.processId as string;
-
-    if (!processId) {
-      throw new Error("Process ID is required");
-    }
-
-    try {
-      const stopped = await this.processManager.stopProcess(processId);
-
-      if (!stopped) {
-        throw new Error(`No npm process found with ID: ${processId}`);
-      }
-
-      return {
-        processId,
-        status: "stopped",
-        message: `NPM process ${processId} has been stopped`,
-      };
-    } catch (error) {
-      console.error(`Error stopping npm process ${processId}:`, error);
-      throw error;
-    }
+    // Run synchronously and return the output
+    return this.executeNpmCommand({
+      command: "run",
+      args: [script, ...args],
+      cwd,
+    });
   }
 
   /**
    * Check if an npm command is allowed
-   * @param command NPM command to check
+   * @param command The command to check
    * @returns True if allowed, false otherwise
    */
   private isCommandAllowed(command: string): boolean {
-    if (this.npmConfig.mode === "whitelist") {
-      return this.npmConfig.allowedCommands.includes(command);
-    } else {
-      return !this.npmConfig.blockedCommands.includes(command);
-    }
+    // if (this.npmConfig.allowedCommands === "*") {
+    //   return true;
+    // }
+
+    return this.npmConfig.allowedCommands.includes(command);
   }
 
   /**
-   * Check if arguments for an npm command are allowed
-   * @param command NPM command
-   * @param args Command arguments
-   * @returns True if all arguments are allowed, false otherwise
+   * Check if arguments are allowed for a command
+   * @param command The command
+   * @param args Arguments to check
+   * @returns True if all arguments are allowed
    */
   private areArgumentsAllowed(command: string, args: string[]): boolean {
-    // If no command-specific config exists, allow all arguments
-    if (
-      !this.npmConfig.commandConfig ||
-      !this.npmConfig.commandConfig[command]
-    ) {
-      return true;
+    // If no args or all args are allowed, return true
+    // if (args.length === 0 || this.npmConfig.allowedArguments === "*") {
+    //   return true;
+    // }
+
+    // Check against allowed arguments patterns
+    const commandArgsConfig =
+      this.npmConfig.commandConfig?.[command]?.allowedArgs;
+    if (!commandArgsConfig) {
+      return false;
     }
 
-    const commandConfig = this.npmConfig.commandConfig[command];
+    // if (commandArgsConfig === "*") {
+    //   return true;
+    // }
 
-    // If no allowed or blocked args are specified, allow all
-    if (!commandConfig.allowedArgs && !commandConfig.blockedArgs) {
-      return true;
-    }
-
-    // Check against allowed args (if defined)
-    if (commandConfig.allowedArgs) {
-      return args.every((arg) => {
-        // Extract the argument name (without value)
-        const argName = arg.startsWith("--") ? arg.split("=")[0] : arg;
-        return commandConfig.allowedArgs!.some(
-          (allowed) => argName === allowed || argName.startsWith(allowed)
-        );
-      });
-    }
-
-    // Check against blocked args (if defined)
-    if (commandConfig.blockedArgs) {
-      return !args.some((arg) => {
-        // Extract the argument name (without value)
-        const argName = arg.startsWith("--") ? arg.split("=")[0] : arg;
-        return commandConfig.blockedArgs!.some(
-          (blocked) => argName === blocked || argName.startsWith(blocked)
-        );
-      });
-    }
-
-    return true;
+    // Check each argument against the allowed patterns
+    return args.every((arg) => {
+      return (
+        typeof commandArgsConfig === "string" ||
+        commandArgsConfig.some((pattern) => {
+          if (typeof pattern === "string") {
+            return arg === pattern;
+          }
+          // return pattern.test(arg);
+        })
+      );
+    });
   }
 
-  /**
-   * Clean up resources when shutting down
-   */
   async shutdown(): Promise<void> {
-    // Stop all npm processes
-    const allProcesses = this.processManager.getAllProcesses();
-    const npmProcesses = allProcesses.filter((p) => p.metadata.type === "npm");
-
-    for (const process of npmProcesses) {
-      await this.processManager.stopProcess(process.id);
-    }
+    // Cleanup any resources used by the plugin
   }
 }

@@ -1,14 +1,10 @@
 import type { FastMCP, Tool, ToolParameters } from "fastmcp";
 import type {
   BasePluginConfig,
-  SessionContext} from "../types/plugin.types.js";
-import {
-  BasePluginConfigSchema
+  SessionContext,
 } from "../types/plugin.types.js";
-import type {
-  Plugin,
-  PluginConfigWithProcessManager,
-} from "../types/plugin.types.js";
+import { BasePluginConfigSchema } from "../types/plugin.types.js";
+import type { Plugin, PluginConfigWithContext } from "../types/plugin.types.js";
 import { logger } from "../services/logging/index.js";
 
 const pluginLogger = logger.withPrefix("Plugin");
@@ -21,7 +17,7 @@ export abstract class BasePlugin implements Plugin {
   protected config: BasePluginConfig;
   protected tools: Tool<SessionContext, any>[] = [];
 
-  constructor(config: PluginConfigWithProcessManager) {
+  constructor(config: PluginConfigWithContext) {
     // Extract the base plugin config with defaults
     this.config = {
       enabled: true,

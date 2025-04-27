@@ -1,6 +1,5 @@
 import { z } from "zod";
 import type { FastMCP, Tool } from "fastmcp";
-import type { ProcessManager } from "../services/process-manager.js";
 
 // Base plugin configuration schema
 export const BasePluginConfigSchema = z.object({
@@ -24,15 +23,12 @@ export interface Plugin {
 }
 
 // Plugin config with process manager
-export interface PluginConfigWithProcessManager {
-  processManager: ProcessManager;
+export interface PluginConfigWithContext {
   [key: string]: any;
 }
 
 // Plugin constructor type
-export type PluginConstructor = new (
-  config: PluginConfigWithProcessManager
-) => Plugin;
+export type PluginConstructor = new (config: PluginConfigWithContext) => Plugin;
 
 // Plugin definition for registration
 export interface PluginDefinition {

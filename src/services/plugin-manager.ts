@@ -6,7 +6,6 @@ import type {
   PluginDefinition,
 } from "../types/plugin.types.js";
 import type { Config } from "../config/types/config.js";
-import type { ProcessManager } from "./process-manager.js";
 import path from "path";
 import { logger } from "./logging/index.js";
 
@@ -17,16 +16,10 @@ export class PluginManager {
   private plugins: Map<string, Plugin> = new Map();
   private mcp: FastMCP<SessionContext>;
   private config: Config;
-  private processManager: ProcessManager;
 
-  constructor(
-    mcp: FastMCP<SessionContext>,
-    config: Config,
-    processManager: ProcessManager
-  ) {
+  constructor(mcp: FastMCP<SessionContext>, config: Config) {
     this.mcp = mcp;
     this.config = config;
-    this.processManager = processManager;
   }
 
   /**
@@ -126,7 +119,6 @@ export class PluginManager {
         // Add process manager to plugin config
         const fullConfig = {
           ...pluginConfig,
-          processManager: this.processManager,
         };
 
         // Register the plugin

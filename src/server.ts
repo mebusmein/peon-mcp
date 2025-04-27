@@ -1,6 +1,5 @@
 import type { ServerOptions } from "fastmcp";
 import { FastMCP } from "fastmcp";
-import { ProcessManager } from "./services/process-manager.js";
 import { PluginManager } from "./services/plugin-manager.js";
 import type { PluginDefinition } from "./types/plugin.types.js";
 import type { SessionContext } from "./types/plugin.types.js";
@@ -10,7 +9,6 @@ import type { Config } from "./config/types/config.js";
 
 export class Server {
   private mcp: FastMCP<SessionContext>;
-  private processManager: ProcessManager;
   private pluginManager: PluginManager;
   private config: Config;
 
@@ -21,24 +19,11 @@ export class Server {
       version: "1.0.0",
       authenticate: async () => {
         const id = "testing";
-        const process = this.processManager.getProcess(`base-process-${id}`);
-        if (!process) {
-          await this.processManager.startProcess(`base-process-${id}`, "bash");
-        }
         return { id };
       },
     });
 
-    this.processManager = new ProcessManager({
-      maxProcesses: this.config.processManager.maxProcesses,
-      checkIntervalMs: this.config.processManager.checkIntervalMs,
-    });
-
-    this.pluginManager = new PluginManager(
-      this.mcp,
-      this.config,
-      this.processManager
-    );
+    this.pluginManager = new PluginManager(this.mcp, this.config);
   }
 
   public async start() {
@@ -84,9 +69,6 @@ export class Server {
     try {
       // Shutdown plugins
       await this.pluginManager.shutdownPlugins();
-
-      // Shutdown process manager
-      await this.processManager.shutdown();
 
       // Close MCP server
       if (typeof this.mcp.stop === "function") {

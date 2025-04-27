@@ -1,7 +1,6 @@
 import { FastMCP } from "fastmcp";
 import { BasePlugin } from "../base-plugin.js";
-import type { ProcessManager } from "../../services/process-manager.js";
-import type { PluginConfigWithProcessManager } from "../../types/plugin.types.js";
+import type { PluginConfigWithContext } from "../../types/plugin.types.js";
 import type { GitPluginConfig } from "./config.js";
 import { validateConfig } from "./config.js";
 import { exec } from "child_process";
@@ -15,14 +14,12 @@ const execAsync = promisify(exec);
  */
 export class GitPlugin extends BasePlugin {
   private gitConfig: GitPluginConfig;
-  private processManager: ProcessManager;
 
-  constructor(config: PluginConfigWithProcessManager) {
+  constructor(config: PluginConfigWithContext) {
     super(config);
 
     // Validate and set plugin-specific config
     this.gitConfig = validateConfig(config);
-    this.processManager = config.processManager;
 
     // Register the tools
     this.registerTools();

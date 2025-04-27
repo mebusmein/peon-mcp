@@ -1,27 +1,25 @@
 import type { Context } from "fastmcp";
 import { FastMCP } from "fastmcp";
 import { BasePlugin } from "../base-plugin.js";
-import type { ProcessManager } from "../../services/process-manager.js";
 import type {
-  PluginConfigWithProcessManager,
+  PluginConfigWithContext,
   SessionContext,
 } from "../../types/plugin.types.js";
 import type { ClaudeCodePluginConfig } from "./config.js";
 import { validateConfig } from "./config.js";
 import crypto from "crypto";
 import { z } from "zod";
+import { execa } from "execa";
 /**
  * Claude Code Plugin for interacting with Claude AI processes
  */
 export class ClaudeCodePlugin extends BasePlugin {
   private claudeConfig: ClaudeCodePluginConfig;
-  private processManager: ProcessManager;
 
-  constructor(config: PluginConfigWithProcessManager) {
+  constructor(config: PluginConfigWithContext) {
     super(config);
     // Validate and set plugin-specific config
     this.claudeConfig = validateConfig(config);
-    this.processManager = config.processManager;
 
     // Register the tools
     this.registerTools();
@@ -65,9 +63,6 @@ export class ClaudeCodePlugin extends BasePlugin {
   ): Promise<any> {
     const prompt = params.prompt as string;
     const sessionId = context.session?.id;
-
-    const command = `claude -p ${prompt}`;
-
     if (!sessionId) {
       return "No session ID provided";
     }
@@ -77,10 +72,7 @@ export class ClaudeCodePlugin extends BasePlugin {
     }
 
     try {
-      const response = await this.processManager.executeProcessCommand(
-        `base-process-${sessionId}`,
-        command
-      );
+      const response = await execa(`claude -p ${prompt}`);
 
       return response;
     } catch (error) {
@@ -103,13 +95,14 @@ export class ClaudeCodePlugin extends BasePlugin {
       return "No session ID provided";
     }
 
-    try {
-      const response = await this.processManager.executeProcessCommand(
-        `base-process-${sessionId}`,
-        command
-      );
+    console.log("Sending command to Execa: %s", command);
 
-      return response;
+    try {
+      const { stdout } = await execa(command);
+
+      console.log("Execa response: %s", stdout);
+
+      return stdout;
     } catch (error) {
       console.error(
         `Error sending command to Claude session ${sessionId}:`,
@@ -124,13 +117,5 @@ export class ClaudeCodePlugin extends BasePlugin {
    */
   async shutdown(): Promise<void> {
     // Stop all Claude processes
-    const allProcesses = this.processManager.getAllProcesses();
-    const claudeProcesses = allProcesses.filter(
-      (p) => p.metadata.type === "claude"
-    );
-
-    for (const process of claudeProcesses) {
-      await this.processManager.stopProcess(process.id);
-    }
   }
 }
