@@ -72,11 +72,11 @@ export class ProcessManager {
 
     // Set up event handlers
     runner.onData((data: string) => {
-      processLogger.debug("[%s]: %s", id, data);
+      // processLogger.debug("[%s]: %s", id, data);
     });
 
     runner.onExit((exitCode: number) => {
-      processLogger.debug("[%s]: Process exited with code %d", id, exitCode);
+      // processLogger.debug("[%s]: Process exited with code %d", id, exitCode);
       if (exitCode !== 0) {
         managedProcess.status = "error";
       } else {
@@ -232,6 +232,7 @@ export class ProcessManager {
       args,
       commandTimeout: options.timeout || 30000,
       connectionTimeout: options.timeout || 15000,
+      id: `run-command-${command}-${args.join("-")}`,
     });
 
     try {

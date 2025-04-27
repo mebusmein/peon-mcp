@@ -1,4 +1,4 @@
-import type { Context} from "fastmcp";
+import type { Context } from "fastmcp";
 import { FastMCP } from "fastmcp";
 import { BasePlugin } from "../base-plugin.js";
 import type { ProcessManager } from "../../services/process-manager.js";
@@ -43,6 +43,15 @@ export class ClaudeCodePlugin extends BasePlugin {
       }),
       execute: this.sendPrompt.bind(this),
     });
+
+    this.addTool({
+      name: "claude_send_command",
+      description: "Send a command to a running Claude AI",
+      parameters: z.object({
+        command: z.string(),
+      }),
+      execute: this.sendCommand.bind(this),
+    });
   }
 
   /**
@@ -69,7 +78,7 @@ export class ClaudeCodePlugin extends BasePlugin {
 
     try {
       const response = await this.processManager.executeProcessCommand(
-        sessionId,
+        `base-process-${sessionId}`,
         command
       );
 
@@ -77,6 +86,33 @@ export class ClaudeCodePlugin extends BasePlugin {
     } catch (error) {
       console.error(
         `Error sending prompt to Claude session ${sessionId}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  private async sendCommand(
+    params: { command: string },
+    context: Context<SessionContext>
+  ): Promise<any> {
+    const command = params.command as string;
+    const sessionId = context.session?.id;
+
+    if (!sessionId) {
+      return "No session ID provided";
+    }
+
+    try {
+      const response = await this.processManager.executeProcessCommand(
+        `base-process-${sessionId}`,
+        command
+      );
+
+      return response;
+    } catch (error) {
+      console.error(
+        `Error sending command to Claude session ${sessionId}:`,
         error
       );
       throw error;

@@ -34,14 +34,12 @@ export class CommandRunner {
     reject: (reason: Error) => void;
   }> = [];
   private outputBuffer: string = "";
-  private errorBuffer: string = "";
   private currentCommand: {
     command: string;
     resolve: (value: string) => void;
     reject: (reason: Error) => void;
   } | null = null;
   private onDataListeners: ((data: string) => void)[] = [];
-  private onErrorListeners: ((data: string) => void)[] = [];
   private onExitListeners: ((exitCode: number) => void)[] = [];
   private logger: ILogger;
 
@@ -74,13 +72,6 @@ export class CommandRunner {
   }
 
   /**
-   * Add a listener for error events
-   */
-  onError(listener: (data: string) => void): void {
-    this.onErrorListeners.push(listener);
-  }
-
-  /**
    * Add a listener for exit events
    */
   onExit(listener: (exitCode: number) => void): void {
@@ -103,7 +94,6 @@ export class CommandRunner {
       });
 
       this.outputBuffer = "";
-      this.errorBuffer = "";
 
       // Set up event handlers for the process
       this.process.onData((data) => {
@@ -113,6 +103,14 @@ export class CommandRunner {
 
         // Notify listeners
         this.onDataListeners.forEach((listener) => listener(output));
+
+        // Check for connection prompt during startup phase
+        if (!this.isConnected && this.hasShellPrompt(this.outputBuffer)) {
+          this.isConnected = true;
+          this.logger.info("Process started successfully");
+          this.outputBuffer = "";
+          resolve();
+        }
 
         // If we're processing a command, check if it's completed
         this.checkCommandCompletion();
@@ -140,9 +138,14 @@ export class CommandRunner {
         this.process = null;
       });
 
-      // Set a timeout to wait for initial connection
-      const timeout = setTimeout(() => {
-        if (!this.isConnected) {
+      // Set a timeout to assume connection is successful after a period
+      setTimeout(() => {
+        if (!this.isConnected && this.process) {
+          this.logger.info("No explicit prompt detected, assuming connected");
+          this.isConnected = true;
+          this.outputBuffer = "";
+          resolve();
+        } else if (!this.isConnected) {
           reject(
             new Error(
               `Connection timeout executing command ${this.config.command}`
@@ -150,91 +153,39 @@ export class CommandRunner {
           );
         }
       }, this.config.connectionTimeout);
-
-      // Wait for some indication that we're ready
-      const checkConnection = setInterval(() => {
-        // If we've received some output that indicates a successful start
-        if (
-          this.outputBuffer.includes("$") ||
-          this.outputBuffer.includes("#") ||
-          this.outputBuffer.includes("%") ||
-          this.outputBuffer.includes(">")
-        ) {
-          clearInterval(checkConnection);
-          clearTimeout(timeout);
-          this.isConnected = true;
-          this.outputBuffer = "";
-          this.logger.info("Process started successfully");
-          resolve();
-        } else if (
-          this.errorBuffer.includes("Error") ||
-          this.errorBuffer.includes("failed") ||
-          this.errorBuffer.includes("timed out")
-        ) {
-          clearInterval(checkConnection);
-          clearTimeout(timeout);
-          reject(
-            new Error(
-              `Failed to start process ${this.config.command}: ${this.errorBuffer}`
-            )
-          );
-        }
-      }, 500);
     });
   }
 
-  /**
-   * Start the process, execute a single command, and then stop the process
-   * @param command The command to execute
-   * @returns The command output
-   */
-  async runSingleCommand(): Promise<string> {
-    try {
-      // Start the process
-      const output = await this.start();
-      // Stop the process
-      this.stop();
-
-      if (typeof output !== "string") {
-        throw new Error("Command execution result is not a string");
-      }
-
-      return output;
-    } catch (error) {
-      // Make sure to stop the process if there's an error
-      if (this.isRunning()) {
-        this.stop();
-      }
-      throw error;
-    }
-  }
-
   async executeCommand(command: string): Promise<string> {
-    const result = await new Promise((resolve, reject) => {
-      if (!this.isConnected || !this.process) {
-        return reject(new Error(`Process not running: ${this.config.command}`));
-      }
+    console.log("Executing command: %s", this.isConnected, this.process);
+    if (!this.isConnected || !this.process) {
+      throw new Error(`Process not running: ${this.config.command}`);
+    }
 
-      this.logger.debug("Executing command: %s", command);
+    this.logger.debug("Executing command: %s", command);
 
+    const result = await new Promise<string>((resolve, reject) => {
       // Queue this command for execution
       this.queueCommand(command, resolve, reject);
     });
 
-    if (typeof result !== "string") {
-      throw new Error("Command execution result is not a string");
+    // Clean up the result:
+    // 1. Strip ANSI escape codes
+    // 2. Remove the command echo line
+    // 3. Remove trailing whitespace and prompt
+    let output = result.replace(ansiRegex(), "");
+
+    // Find and remove the command echo line (first line often echoes the command)
+    const commandEchoIndex = output.indexOf(command);
+    if (commandEchoIndex >= 0) {
+      const newlineAfterCommand = output.indexOf("\n", commandEchoIndex);
+      if (newlineAfterCommand >= 0) {
+        output = output.substring(newlineAfterCommand + 1);
+      }
     }
 
-    let output = result;
-
-    // strip ANSI escape codes from the result
-    output = output.replace(ansiRegex(), "");
-
-    // strip the first lines containing the command prompt
-    output = output.replace(/^.*\n/, "");
-
-    // strip any trailing whitespace
-    output = output.trim();
+    // Remove prompt from the end and trim
+    output = this.removePromptFromEnd(output).trim();
 
     return output;
   }
@@ -265,7 +216,6 @@ export class CommandRunner {
     // Get the next command
     this.currentCommand = this.commandQueue.shift()!;
     this.outputBuffer = "";
-    this.errorBuffer = "";
 
     // Send the command to the process
     if (this.process.write) {
@@ -274,8 +224,6 @@ export class CommandRunner {
       // Set a timeout for command execution
       setTimeout(() => {
         if (this.currentCommand) {
-          // If we still have the same command after timeout, assume it completed
-          // and we just didn't get a clear completion indicator
           const output = this.outputBuffer;
           const resolve = this.currentCommand.resolve;
           this.currentCommand = null;
@@ -297,41 +245,36 @@ export class CommandRunner {
       return;
     }
 
-    // Check for common shell prompt patterns, including those with ANSI escape sequences
-    const promptPatterns = [
-      // Basic shell prompts
-      "\n$ ",
-      "\r\n$ ",
-      "\n# ",
-      "\r\n# ",
-      // Prompts that may have ANSI color codes
-      // /\n\x1b\[[0-9;]*m[$#]/,
-      // /\r\n\x1b\[[0-9;]*m[$#]/,
-      // Common bash/zsh prompt endings
-      "\n% ",
-      "\r\n% ",
-      // Command prompt (Windows)
-      "\n> ",
-      "\r\n> ",
-      // Generic prompt pattern (line ending followed by common prompt chars)
-      /[\n\r]+.*[$#%>]\s*$/,
-    ];
-
-    const hasPrompt = promptPatterns.some((pattern) => {
-      if (typeof pattern === "string") {
-        return this.outputBuffer.includes(pattern);
-      } else {
-        return pattern.test(this.outputBuffer);
-      }
-    });
-
-    if (hasPrompt) {
-      const output = this.outputBuffer.trim();
+    if (this.hasShellPrompt(this.outputBuffer)) {
+      const output = this.outputBuffer;
       const resolve = this.currentCommand.resolve;
       this.currentCommand = null;
       resolve(output);
       this.processNextCommand();
     }
+  }
+
+  private hasShellPrompt(output: string): boolean {
+    // Check for common shell prompt patterns - more permissive now
+    return (
+      // Common shell prompts
+      output.includes("$ ") ||
+      output.includes("# ") ||
+      output.includes("% ") ||
+      output.includes("> ") ||
+      // Pattern for line ending followed by prompt character
+      /[\r\n][^]*[$#%>]\s*$/.test(output) ||
+      // More general check for common terminal ready indicators
+      output.includes("ready") ||
+      output.includes("login") ||
+      output.includes("password") ||
+      output.includes("successfully")
+    );
+  }
+
+  private removePromptFromEnd(output: string): string {
+    // Remove the shell prompt from the end of the output
+    return output.replace(/[\r\n].*[$#%>]\s*$/, "");
   }
 
   stop(): void {
@@ -340,8 +283,6 @@ export class CommandRunner {
       this.process.kill();
       this.process = null;
       this.isConnected = false;
-    } else {
-      this.logger.debug("Process already terminated or not established");
     }
   }
 
@@ -376,12 +317,5 @@ export class CommandRunner {
     } else {
       throw new Error("Cannot write to process: not connected");
     }
-  }
-
-  /**
-   * Get the current buffered output
-   */
-  getOutput(): string {
-    return this.outputBuffer;
   }
 }
